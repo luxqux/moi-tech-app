@@ -280,11 +280,26 @@
 <div class="overlay" id="ov-sale">
   <div class="sheet">
     <h2>Оформить продажу</h2>
-    <div class="field">
-      <label>Товар со склада</label>
-      <select id="sl-item"></select>
+
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+      <button type="button" id="sl-mode-stock" onclick="setSaleMode('stock')" class="btn primary" style="flex:1; padding:10px; font-size:13px;">Со склада</button>
+      <button type="button" id="sl-mode-custom" onclick="setSaleMode('custom')" class="btn ghost" style="flex:1; padding:10px; font-size:13px;">Свой товар</button>
     </div>
-    <div class="hint" id="sl-hint">Выберите товар — цена подставится сама</div>
+
+    <div id="sl-stock-fields">
+      <div class="field">
+        <label>Товар со склада</label>
+        <select id="sl-item"></select>
+      </div>
+      <div class="hint" id="sl-hint">Выберите товар — цена подставится сама</div>
+    </div>
+
+    <div id="sl-custom-fields" style="display:none;">
+      <div class="field"><label>Название товара</label><input id="sl-name" placeholder="Например: наушники, услуга настройки..."></div>
+      <div class="field"><label>Себестоимость за шт, ₽ (необязательно)</label><input id="sl-cost" type="number" inputmode="numeric" placeholder="0"></div>
+      <div class="hint">Если оставить пустым, прибыль по этой позиции будет равна сумме продажи</div>
+    </div>
+
     <div class="field"><label>Количество, шт</label><input id="sl-qty" type="number" inputmode="numeric" value="1"></div>
     <div class="field"><label>Цена продажи за шт, ₽</label><input id="sl-price" type="number" inputmode="numeric"></div>
     <div class="sheet-actions">
@@ -503,6 +518,16 @@ function deleteStock(id){
 }
 
 // ---------- Sales ----------
+let saleMode = 'stock';
+function setSaleMode(mode){
+  saleMode = mode;
+  document.getElementById('sl-mode-stock').className = 'btn ' + (mode==='stock' ? 'primary' : 'ghost');
+  document.getElementById('sl-mode-custom').className = 'btn ' + (mode==='custom' ? 'primary' : 'ghost');
+  document.getElementById('sl-stock-fields').style.display = mode==='stock' ? 'block' : 'none';
+  document.getElementById('sl-custom-fields').style.display = mode==='custom' ? 'block' : 'none';
+  if(mode==='stock'){ syncSalePrice(); }
+  else { document.getElementById('sl-price').value=''; document.getElementById('sl-name').value=''; document.getElementById('sl-cost').value=''; }
+}
 function openSaleModal(){
   const sel = document.getElementById('sl-item');
   sel.innerHTML = '';
@@ -517,7 +542,7 @@ function openSaleModal(){
     });
   }
   document.getElementById('sl-qty').value = 1;
-  syncSalePrice();
+  setSaleMode('stock');
   document.getElementById('ov-sale').classList.add('open');
 }
 document.getElementById('sl-item').addEventListener('change', syncSalePrice);
@@ -527,16 +552,21 @@ function syncSalePrice(){
   document.getElementById('sl-price').value = item ? item.price : '';
 }
 function addSale(){
-  const id = document.getElementById('sl-item').value;
-  const item = db.stock.find(s=>s.id===id);
   const qty = parseFloat(document.getElementById('sl-qty').value);
   const price = parseFloat(document.getElementById('sl-price').value);
-  if(!item || !qty || !price || qty > item.qty){ haptic('rigid'); return; }
-  pushItem('sales', {
-    name:item.name, qty, price, cost:item.cost,
-    date: new Date().toISOString()
-  });
-  updateItem('stock', item.id, { qty: item.qty - qty });
+
+  if(saleMode === 'stock'){
+    const id = document.getElementById('sl-item').value;
+    const item = db.stock.find(s=>s.id===id);
+    if(!item || !qty || !price || qty > item.qty){ haptic('rigid'); return; }
+    pushItem('sales', { name:item.name, qty, price, cost:item.cost, date: new Date().toISOString() });
+    updateItem('stock', item.id, { qty: item.qty - qty });
+  } else {
+    const name = document.getElementById('sl-name').value.trim();
+    const cost = parseFloat(document.getElementById('sl-cost').value) || 0;
+    if(!name || !qty || !price){ haptic('rigid'); return; }
+    pushItem('sales', { name, qty, price, cost, date: new Date().toISOString(), custom: true });
+  }
   closeAll();
 }
 function deleteSale(id){
@@ -638,7 +668,7 @@ function render(){
       <div class="card">
         <div class="row-item">
           <div>
-            <div class="name">${escapeHtml(s.name)}</div>
+            <div class="name">${escapeHtml(s.name)}${s.custom ? ' <span class="badge stock" style="margin-top:0; vertical-align:middle;">свой товар</span>' : ''}</div>
             <div class="meta">${d} · ${s.qty} шт × ${fmt(s.price)} · прибыль ${fmt(profit)}</div>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
