@@ -161,7 +161,8 @@
     </div>
     <div style="display:flex; gap:8px;">
       <button onclick="shareInviteLink()" style="background:var(--accent-dim); border:1px solid var(--accent); color:var(--accent); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">📤 Пригласить</button>
-      <button id="roomBtn" onclick="openRoomSwitcher()" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">👥 <span id="roomLabel">—</span></button>
+      <button onclick="openMembers()" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">👥 <span id="membersCount">1</span></button>
+      <button id="roomBtn" onclick="openRoomSwitcher()" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">⚙️ <span id="roomLabel">—</span></button>
     </div>
   </div>
 </header>
@@ -236,6 +237,17 @@
   </div>
 </div>
 
+<!-- Modal: members -->
+<div class="overlay" id="ov-members">
+  <div class="sheet">
+    <h2>Участники</h2>
+    <div id="membersList"></div>
+    <div class="sheet-actions">
+      <button class="btn ghost" onclick="closeAll()" style="flex:1;">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: add stock -->
 <div class="overlay" id="ov-stock">
   <div class="sheet">
@@ -291,6 +303,20 @@ if (tg) {
   document.documentElement.style.setProperty('--bg', tg.themeParams.bg_color ? '#0F1115' : '#0F1115');
 }
 function haptic(type){ if(tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred(type||'light'); }
+
+// ---------- Current user ----------
+let myId, myName;
+(function initUser(){
+  const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+  if(u){
+    myId = String(u.id);
+    myName = [u.first_name, u.last_name].filter(Boolean).join(' ') || (u.username ? '@'+u.username : 'Без имени');
+  } else {
+    myId = localStorage.getItem('techstore_uid') || ('guest_' + Math.random().toString(36).slice(2,8));
+    localStorage.setItem('techstore_uid', myId);
+    myName = 'Вы (браузер)';
+  }
+})();
 
 // ---------- Bot info (для кнопки "Поделиться") ----------
 // Вставьте username вашего бота и короткое имя приложения (то, что задавали в BotFather при /newapp)
@@ -360,6 +386,21 @@ function startSync(){
     db.sales = objToArr(val.sales);
     db.expenses = objToArr(val.expenses);
     render();
+  });
+
+  // presence: mark myself as active in this room
+  const memberRef = roomRef.child('members').child(myId);
+  memberRef.set({ name: myName, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+  memberRef.onDisconnect().update({ lastSeen: firebase.database.ServerValue.TIMESTAMP });
+  if(window._presenceInterval) clearInterval(window._presenceInterval);
+  window._presenceInterval = setInterval(()=>{
+    memberRef.update({ lastSeen: firebase.database.ServerValue.TIMESTAMP });
+  }, 20000);
+
+  roomRef.child('members').on('value', snap=>{
+    const val = snap.val() || {};
+    db.members = Object.keys(val).map(k=>({ id:k, ...val[k] }));
+    renderMembers();
   });
 }
 function objToArr(obj){
@@ -484,6 +525,50 @@ function addExpense(){
 }
 function deleteExpense(id){
   removeItem('expenses', id);
+}
+
+function renderMembers(){
+  const members = db.members || [];
+  const now = Date.now();
+  document.getElementById('membersCount').textContent = members.length;
+  const list = document.getElementById('membersList');
+  if(!list) return;
+  if(members.length === 0){
+    list.innerHTML = `<div class="empty">Пока никого нет</div>`;
+    return;
+  }
+  list.innerHTML = [...members].sort((a,b)=> (b.lastSeen||0)-(a.lastSeen||0)).map(m=>{
+    const isMe = m.id === myId;
+    const diff = now - (m.lastSeen||0);
+    const online = diff < 60000;
+    const statusText = online ? 'в сети' : timeAgo(diff);
+    return `
+    <div class="card">
+      <div class="row-item">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:36px; height:36px; border-radius:50%; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-weight:700; font-family:'Space Grotesk',sans-serif; color:var(--accent); flex-shrink:0;">${escapeHtml((m.name||'?')[0].toUpperCase())}</div>
+          <div>
+            <div class="name">${escapeHtml(m.name||'Без имени')}${isMe ? ' (вы)' : ''}</div>
+            <div class="meta" style="display:flex; align-items:center; gap:5px;">
+              <span style="width:7px; height:7px; border-radius:50%; background:${online?'var(--income)':'var(--text-dim)'}; display:inline-block;"></span>
+              ${statusText}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function timeAgo(ms){
+  const min = Math.floor(ms/60000);
+  if(min < 60) return `был(а) ${min} мин назад`;
+  const hrs = Math.floor(min/60);
+  if(hrs < 24) return `был(а) ${hrs} ч назад`;
+  return `был(а) ${Math.floor(hrs/24)} дн назад`;
+}
+function openMembers(){
+  renderMembers();
+  document.getElementById('ov-members').classList.add('open');
 }
 
 // ---------- Render ----------
