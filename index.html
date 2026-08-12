@@ -159,7 +159,10 @@
       <div class="eyebrow" id="dateLabel">Сегодня</div>
       <h1>Учёт техники</h1>
     </div>
-    <button id="roomBtn" onclick="openRoomSwitcher()" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">👥 <span id="roomLabel">—</span></button>
+    <div style="display:flex; gap:8px;">
+      <button onclick="shareInviteLink()" style="background:var(--accent-dim); border:1px solid var(--accent); color:var(--accent); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">📤 Пригласить</button>
+      <button id="roomBtn" onclick="openRoomSwitcher()" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">👥 <span id="roomLabel">—</span></button>
+    </div>
   </div>
 </header>
 
@@ -229,6 +232,7 @@
     <div class="sheet-actions">
       <button class="btn primary" onclick="joinRoom()" style="flex:1;">Войти</button>
     </div>
+    <button onclick="shareInviteLink()" class="btn ghost" style="width:100%; margin-top:10px;">📤 Пригласить в текущую комнату</button>
   </div>
 </div>
 
@@ -288,6 +292,27 @@ if (tg) {
 }
 function haptic(type){ if(tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred(type||'light'); }
 
+// ---------- Bot info (для кнопки "Поделиться") ----------
+// Вставьте username вашего бота и короткое имя приложения (то, что задавали в BotFather при /newapp)
+const BOT_USERNAME = "LuxquxBot"; // без @, например: luxqux_bot
+const APP_SHORT_NAME = "moi-tech-app"; // например: app
+
+function shareInviteLink(){
+  if(!room) return;
+  const link = `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}?startapp=${room}`;
+  const text = 'Присоединяйся к нашему учёту техники 👇';
+  if(tg && tg.openTelegramLink){
+    tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`);
+  } else if(navigator.share){
+    navigator.share({title:'Учёт техники', text, url:link});
+  } else if(navigator.clipboard){
+    navigator.clipboard.writeText(link);
+    alert('Ссылка скопирована:\n' + link);
+  } else {
+    prompt('Скопируйте ссылку и отправьте другу:', link);
+  }
+}
+
 // ---------- Firebase config ----------
 // Вставьте сюда данные вашего Firebase-проекта (см. инструкцию)
 const firebaseConfig = {
@@ -304,6 +329,12 @@ const fbdb = firebase.database();
 
 // ---------- Room / shared workspace ----------
 let room = localStorage.getItem('techstore_room') || '';
+// Если открыли по ссылке-приглашению — комната передаётся в start_param
+const startParam = tg && tg.initDataUnsafe ? tg.initDataUnsafe.start_param : null;
+if(startParam){
+  room = startParam;
+  localStorage.setItem('techstore_room', room);
+}
 let db = { stock:[], sales:[], expenses:[] };
 let roomRef = null;
 
