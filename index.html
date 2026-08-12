@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Учёт техники</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -152,8 +154,13 @@
 <body>
 
 <header>
-  <div class="eyebrow" id="dateLabel">Сегодня</div>
-  <h1>Учёт техники</h1>
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div>
+      <div class="eyebrow" id="dateLabel">Сегодня</div>
+      <h1>Учёт техники</h1>
+    </div>
+    <button id="roomBtn" onclick="openRoomSwitcher()" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">👥 <span id="roomLabel">—</span></button>
+  </div>
 </header>
 
 <div class="hero">
@@ -211,6 +218,20 @@
   <button data-tab="tab-summary"><span class="ic">📊</span>Итог</button>
 </nav>
 
+<!-- Room gate -->
+<div class="overlay open" id="ov-room" style="align-items:center;">
+  <div class="sheet" style="border-radius:20px;">
+    <h2>Общий доступ</h2>
+    <div class="hint" style="margin-bottom:16px;">
+      Придумайте название вашей общей комнаты (например: <b>ivanov-tech</b>) и передайте его другу — введите одинаковое название на обоих телефонах, и данные будут общими.
+    </div>
+    <div class="field"><label>Название комнаты</label><input id="room-input" placeholder="например: ivanov-tech"></div>
+    <div class="sheet-actions">
+      <button class="btn primary" onclick="joinRoom()" style="flex:1;">Войти</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: add stock -->
 <div class="overlay" id="ov-stock">
   <div class="sheet">
@@ -267,17 +288,55 @@ if (tg) {
 }
 function haptic(type){ if(tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred(type||'light'); }
 
-// ---------- Storage ----------
-const KEY = 'techstore_v1';
-function load(){
-  try{
-    const raw = localStorage.getItem(KEY);
-    if(raw) return JSON.parse(raw);
-  }catch(e){}
-  return { stock:[], sales:[], expenses:[] };
+// ---------- Firebase config ----------
+// Вставьте сюда данные вашего Firebase-проекта (см. инструкцию)
+const firebaseConfig = {
+  apiKey: "AIzaSyDrzQAmD7b27xs-gf388vwufysaSi4KxNU",
+  databaseURL: "http://luxqux-app.firebaseapp.com",
+  projectId: "luxqux-app"
+};
+firebase.initializeApp(firebaseConfig);
+const fbdb = firebase.database();
+
+// ---------- Room / shared workspace ----------
+let room = localStorage.getItem('techstore_room') || '';
+let db = { stock:[], sales:[], expenses:[] };
+let roomRef = null;
+
+function joinRoom(){
+  const val = document.getElementById('room-input').value.trim().toLowerCase().replace(/[^a-z0-9\-]/g,'');
+  if(!val){ haptic('rigid'); return; }
+  room = val;
+  localStorage.setItem('techstore_room', room);
+  document.getElementById('ov-room').classList.remove('open');
+  startSync();
 }
-let db = load();
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){} render(); }
+function openRoomSwitcher(){
+  document.getElementById('room-input').value = room;
+  document.getElementById('ov-room').classList.add('open');
+}
+function startSync(){
+  document.getElementById('roomLabel').textContent = room;
+  if(roomRef) roomRef.off();
+  roomRef = fbdb.ref('rooms/' + room);
+  roomRef.on('value', snap=>{
+    const val = snap.val() || {};
+    db.stock = objToArr(val.stock);
+    db.sales = objToArr(val.sales);
+    db.expenses = objToArr(val.expenses);
+    render();
+  });
+}
+function objToArr(obj){
+  if(!obj) return [];
+  return Object.keys(obj).map(k=>({ ...obj[k], id:k }));
+}
+if(room){ document.getElementById('ov-room').classList.remove('open'); startSync(); }
+
+// generic helpers replacing old localStorage save()
+function pushItem(path, data){ return roomRef.child(path).push(data); }
+function updateItem(path, key, data){ return roomRef.child(path).child(key).update(data); }
+function removeItem(path, key){ return roomRef.child(path).child(key).remove(); }
 
 const fmt = n => (Math.round(n||0)).toLocaleString('ru-RU') + ' ₽';
 const todayStr = () => new Date().toLocaleDateString('ru-RU', {day:'numeric', month:'long'});
@@ -327,12 +386,11 @@ function addStock(){
   const cost = parseFloat(document.getElementById('st-cost').value);
   const price = parseFloat(document.getElementById('st-price').value);
   if(!name || !qty || !cost || !price){ haptic('rigid'); return; }
-  db.stock.push({id:Date.now(), name, qty, cost, price});
-  closeAll(); save();
+  pushItem('stock', {name, qty, cost, price});
+  closeAll();
 }
 function deleteStock(id){
-  db.stock = db.stock.filter(s=>s.id!==id);
-  save();
+  removeItem('stock', id);
 }
 
 // ---------- Sales ----------
@@ -355,26 +413,25 @@ function openSaleModal(){
 }
 document.getElementById('sl-item').addEventListener('change', syncSalePrice);
 function syncSalePrice(){
-  const id = parseFloat(document.getElementById('sl-item').value);
+  const id = document.getElementById('sl-item').value;
   const item = db.stock.find(s=>s.id===id);
   document.getElementById('sl-price').value = item ? item.price : '';
 }
 function addSale(){
-  const id = parseFloat(document.getElementById('sl-item').value);
+  const id = document.getElementById('sl-item').value;
   const item = db.stock.find(s=>s.id===id);
   const qty = parseFloat(document.getElementById('sl-qty').value);
   const price = parseFloat(document.getElementById('sl-price').value);
   if(!item || !qty || !price || qty > item.qty){ haptic('rigid'); return; }
-  db.sales.push({
-    id:Date.now(), name:item.name, qty, price, cost:item.cost,
+  pushItem('sales', {
+    name:item.name, qty, price, cost:item.cost,
     date: new Date().toISOString()
   });
-  item.qty -= qty;
-  closeAll(); save();
+  updateItem('stock', item.id, { qty: item.qty - qty });
+  closeAll();
 }
 function deleteSale(id){
-  db.sales = db.sales.filter(s=>s.id!==id);
-  save();
+  removeItem('sales', id);
 }
 
 // ---------- Expenses ----------
@@ -387,12 +444,11 @@ function addExpense(){
   const title = document.getElementById('ex-title').value.trim();
   const amount = parseFloat(document.getElementById('ex-amount').value);
   if(!title || !amount){ haptic('rigid'); return; }
-  db.expenses.push({id:Date.now(), title, amount, date: new Date().toISOString()});
-  closeAll(); save();
+  pushItem('expenses', {title, amount, date: new Date().toISOString()});
+  closeAll();
 }
 function deleteExpense(id){
-  db.expenses = db.expenses.filter(e=>e.id!==id);
-  save();
+  removeItem('expenses', id);
 }
 
 // ---------- Render ----------
@@ -410,7 +466,7 @@ function render(){
             <div class="meta">Закупка ${fmt(s.cost)} · Продажа ${fmt(s.price)}</div>
             <span class="badge stock">${s.qty} шт в наличии</span>
           </div>
-          <button class="del-btn" onclick="deleteStock(${s.id})">✕</button>
+          <button class="del-btn" onclick="deleteStock('${s.id}')">✕</button>
         </div>
       </div>`).join('');
   }
@@ -432,7 +488,7 @@ function render(){
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
             <span class="amount income">+${fmt(s.price*s.qty)}</span>
-            <button class="del-btn" onclick="deleteSale(${s.id})">✕</button>
+            <button class="del-btn" onclick="deleteSale('${s.id}')">✕</button>
           </div>
         </div>
       </div>`;
@@ -455,7 +511,7 @@ function render(){
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
             <span class="amount expense">-${fmt(e.amount)}</span>
-            <button class="del-btn" onclick="deleteExpense(${e.id})">✕</button>
+            <button class="del-btn" onclick="deleteExpense('${e.id}')">✕</button>
           </div>
         </div>
       </div>`;
