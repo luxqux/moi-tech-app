@@ -465,6 +465,15 @@ function closeAll(){
   document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open'));
 }
 
+function confirmDelete(message, onConfirm){
+  haptic('medium');
+  if(tg && tg.showConfirm){
+    tg.showConfirm(message, (ok)=>{ if(ok) onConfirm(); });
+  } else if(window.confirm(message)){
+    onConfirm();
+  }
+}
+
 // ---------- Stock ----------
 function openStockModal(){
   document.getElementById('st-name').value='';
@@ -489,7 +498,8 @@ function addStock(){
   closeAll();
 }
 function deleteStock(id){
-  removeItem('stock', id);
+  const item = db.stock.find(s=>s.id===id);
+  confirmDelete(`Удалить «${item ? item.name : 'товар'}» со склада?`, ()=> removeItem('stock', id));
 }
 
 // ---------- Sales ----------
@@ -530,7 +540,8 @@ function addSale(){
   closeAll();
 }
 function deleteSale(id){
-  removeItem('sales', id);
+  const item = db.sales.find(s=>s.id===id);
+  confirmDelete(`Удалить запись о продаже «${item ? item.name : ''}»?`, ()=> removeItem('sales', id));
 }
 
 // ---------- Expenses ----------
@@ -547,7 +558,8 @@ function addExpense(){
   closeAll();
 }
 function deleteExpense(id){
-  removeItem('expenses', id);
+  const item = db.expenses.find(e=>e.id===id);
+  confirmDelete(`Удалить расход «${item ? item.title : ''}»?`, ()=> removeItem('expenses', id));
 }
 
 function renderMembers(){
