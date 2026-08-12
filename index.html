@@ -162,7 +162,7 @@
     <div style="display:flex; gap:8px;">
       <button onclick="shareInviteLink()" style="background:var(--accent-dim); border:1px solid var(--accent); color:var(--accent); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">📤 Пригласить</button>
       <button onclick="openMembers()" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">👥 <span id="membersCount">1</span></button>
-      <button id="roomBtn" onclick="openRoomSwitcher()" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">⚙️ <span id="roomLabel">—</span></button>
+      <button id="roomBtn" onclick="document.getElementById('ov-room-settings').classList.add('open')" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">⚙️ <span id="roomLabel">—</span></button>
     </div>
   </div>
 </header>
@@ -227,13 +227,26 @@
   <div class="sheet" style="border-radius:20px;">
     <h2>Общий доступ</h2>
     <div class="hint" style="margin-bottom:16px;">
-      Придумайте название вашей общей комнаты (например: <b>ivanov-tech</b>) и передайте его другу — введите одинаковое название на обоих телефонах, и данные будут общими.
+      Создайте общее рабочее пространство одной кнопкой, а затем пригласите друга по ссылке — он подключится автоматически, без ввода названий.
     </div>
-    <div class="field"><label>Название комнаты</label><input id="room-input" placeholder="например: ivanov-tech"></div>
     <div class="sheet-actions">
-      <button class="btn primary" onclick="joinRoom()" style="flex:1;">Войти</button>
+      <button class="btn primary" onclick="createRoom()" style="flex:1;">Создать общий доступ</button>
     </div>
-    <button onclick="shareInviteLink()" class="btn ghost" style="width:100%; margin-top:10px;">📤 Пригласить в текущую комнату</button>
+  </div>
+</div>
+
+<!-- Room settings (для тех, кто уже в комнате) -->
+<div class="overlay" id="ov-room-settings">
+  <div class="sheet">
+    <h2>Настройки комнаты</h2>
+    <div class="hint" style="margin-bottom:16px;">Все, кто перешёл по вашей ссылке-приглашению, видят те же данные.</div>
+    <div class="sheet-actions">
+      <button class="btn primary" onclick="shareInviteLink()" style="flex:1;">📤 Пригласить друга</button>
+    </div>
+    <div class="sheet-actions" style="margin-top:0;">
+      <button class="btn ghost" onclick="closeAll()" style="flex:1;">Закрыть</button>
+      <button class="btn ghost" onclick="leaveRoom()" style="flex:1; color:var(--expense); border-color:var(--expense-dim);">Покинуть комнату</button>
+    </div>
   </div>
 </div>
 
@@ -364,20 +377,24 @@ if(startParam){
 let db = { stock:[], sales:[], expenses:[] };
 let roomRef = null;
 
-function joinRoom(){
-  const val = document.getElementById('room-input').value.trim().toLowerCase().replace(/[^a-z0-9\-]/g,'');
-  if(!val){ haptic('rigid'); return; }
-  room = val;
+function createRoom(){
+  room = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
   localStorage.setItem('techstore_room', room);
   document.getElementById('ov-room').classList.remove('open');
   startSync();
+  setTimeout(shareInviteLink, 400);
 }
-function openRoomSwitcher(){
-  document.getElementById('room-input').value = room;
+function leaveRoom(){
+  if(roomRef) roomRef.off();
+  if(window._presenceInterval) clearInterval(window._presenceInterval);
+  localStorage.removeItem('techstore_room');
+  room = '';
+  db = { stock:[], sales:[], expenses:[], members:[] };
+  closeAll();
   document.getElementById('ov-room').classList.add('open');
 }
 function startSync(){
-  document.getElementById('roomLabel').textContent = room;
+  document.getElementById('roomLabel').textContent = 'комната';
   if(roomRef) roomRef.off();
   roomRef = fbdb.ref('rooms/' + room);
   roomRef.on('value', snap=>{
@@ -463,6 +480,12 @@ function addStock(){
   const price = parseFloat(document.getElementById('st-price').value);
   if(!name || !qty || !cost || !price){ haptic('rigid'); return; }
   pushItem('stock', {name, qty, cost, price});
+  pushItem('expenses', {
+    title: `Закупка: ${name} (${qty} шт)`,
+    amount: qty * cost,
+    date: new Date().toISOString(),
+    auto: true
+  });
   closeAll();
 }
 function deleteStock(id){
@@ -626,7 +649,7 @@ function render(){
       <div class="card">
         <div class="row-item">
           <div>
-            <div class="name">${escapeHtml(e.title)}</div>
+            <div class="name">${escapeHtml(e.title)}${e.auto ? ' <span class="badge stock" style="margin-top:0; vertical-align:middle;">авто</span>' : ''}</div>
             <div class="meta">${d}</div>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
