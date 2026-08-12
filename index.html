@@ -292,8 +292,12 @@ function haptic(type){ if(tg && tg.HapticFeedback) tg.HapticFeedback.impactOccur
 // Вставьте сюда данные вашего Firebase-проекта (см. инструкцию)
 const firebaseConfig = {
   apiKey: "AIzaSyDrzQAmD7b27xs-gf388vwufysaSi4KxNU",
-  databaseURL: "http://luxqux-app.firebaseapp.com",
-  projectId: "luxqux-app"
+  authDomain: "luxqux-app.firebaseapp.com",
+  databaseURL: "https://luxqux-app-default-rtdb.firebaseio.com",
+  projectId: "luxqux-app",
+  storageBucket: "luxqux-app.firebasestorage.app",
+  messagingSenderId: "130681551656",
+  appId: "1:130681551656:web:b3c1d7c22e5a5fecbeae1d"
 };
 firebase.initializeApp(firebaseConfig);
 const fbdb = firebase.database();
