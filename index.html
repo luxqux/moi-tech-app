@@ -149,6 +149,12 @@
   .btn.primary{background:var(--accent); color:#08120F;}
   .btn.ghost{background:var(--surface); color:var(--text-dim); border:1px solid var(--line);}
   .hint{font-size:11.5px; color:var(--text-dim); margin-top:-4px; margin-bottom:12px;}
+
+  .period-btn{
+    flex:1; background:var(--surface); border:1px solid var(--line); color:var(--text-dim);
+    font-family:'Inter',sans-serif; font-size:12px; font-weight:600; padding:9px 4px; border-radius:10px;
+  }
+  .period-btn.active{background:var(--accent-dim); border-color:var(--accent); color:var(--accent);}
 </style>
 </head>
 <body>
@@ -180,6 +186,8 @@
 <main>
   <section id="tab-stock" class="active">
     <div class="section-title">Товары в наличии</div>
+    <input id="stockSearch" placeholder="Поиск по названию..." oninput="render()"
+      style="width:100%; background:var(--surface); border:1px solid var(--line); color:var(--text); border-radius:12px; padding:11px 14px; font-size:14px; font-family:'Inter',sans-serif; margin-bottom:12px;">
     <div id="stockList"></div>
   </section>
 
@@ -195,6 +203,12 @@
 
   <section id="tab-summary">
     <div class="section-title">Сводка</div>
+    <div style="display:flex; gap:6px; margin-bottom:14px;">
+      <button class="period-btn active" data-period="all" onclick="setPeriod('all')">Всё время</button>
+      <button class="period-btn" data-period="today" onclick="setPeriod('today')">Сегодня</button>
+      <button class="period-btn" data-period="week" onclick="setPeriod('week')">Неделя</button>
+      <button class="period-btn" data-period="month" onclick="setPeriod('month')">Месяц</button>
+    </div>
     <div class="card">
       <div class="row-item"><span class="name">Общий доход</span><span class="amount income" id="s-income">0 ₽</span></div>
     </div>
@@ -313,7 +327,23 @@
 <div class="overlay" id="ov-expense">
   <div class="sheet">
     <h2>Добавить расход</h2>
-    <div class="field"><label>Статья</label><input id="ex-title" placeholder="Аренда, реклама, закупка..."></div>
+    <div class="field">
+      <label>Категория</label>
+      <select id="ex-category" onchange="toggleExCustom()">
+        <option value="Закупка товара">Закупка товара</option>
+        <option value="Аренда">Аренда</option>
+        <option value="Реклама">Реклама</option>
+        <option value="Зарплата">Зарплата</option>
+        <option value="Доставка/логистика">Доставка/логистика</option>
+        <option value="Ремонт/обслуживание">Ремонт/обслуживание</option>
+        <option value="Прочее" id="ex-other-opt">Другое...</option>
+      </select>
+    </div>
+    <div class="field" id="ex-custom-field" style="display:none;">
+      <label>Своя категория</label>
+      <input id="ex-custom" placeholder="Введите название">
+    </div>
+    <div class="field"><label>Комментарий (необязательно)</label><input id="ex-title" placeholder="Например: партия ноутбуков ASUS"></div>
     <div class="field"><label>Сумма, ₽</label><input id="ex-amount" type="number" inputmode="numeric" placeholder="15000"></div>
     <div class="sheet-actions">
       <button class="btn ghost" onclick="closeAll()">Отмена</button>
@@ -503,12 +533,14 @@ function addStock(){
   const cost = parseFloat(document.getElementById('st-cost').value);
   const price = parseFloat(document.getElementById('st-price').value);
   if(!name || !qty || !cost || !price){ haptic('rigid'); return; }
-  pushItem('stock', {name, qty, cost, price});
+  pushItem('stock', {name, qty, cost, price, authorId: myId, authorName: myName});
   pushItem('expenses', {
     title: `Закупка: ${name} (${qty} шт)`,
+    category: 'Закупка товара',
     amount: qty * cost,
     date: new Date().toISOString(),
-    auto: true
+    auto: true,
+    authorId: myId, authorName: myName
   });
   closeAll();
 }
@@ -559,13 +591,13 @@ function addSale(){
     const id = document.getElementById('sl-item').value;
     const item = db.stock.find(s=>s.id===id);
     if(!item || !qty || !price || qty > item.qty){ haptic('rigid'); return; }
-    pushItem('sales', { name:item.name, qty, price, cost:item.cost, date: new Date().toISOString() });
+    pushItem('sales', { name:item.name, qty, price, cost:item.cost, date: new Date().toISOString(), authorId: myId, authorName: myName });
     updateItem('stock', item.id, { qty: item.qty - qty });
   } else {
     const name = document.getElementById('sl-name').value.trim();
     const cost = parseFloat(document.getElementById('sl-cost').value) || 0;
     if(!name || !qty || !price){ haptic('rigid'); return; }
-    pushItem('sales', { name, qty, price, cost, date: new Date().toISOString(), custom: true });
+    pushItem('sales', { name, qty, price, cost, date: new Date().toISOString(), custom: true, authorId: myId, authorName: myName });
   }
   closeAll();
 }
@@ -575,16 +607,28 @@ function deleteSale(id){
 }
 
 // ---------- Expenses ----------
+function toggleExCustom(){
+  const isOther = document.getElementById('ex-category').value === 'Прочее';
+  document.getElementById('ex-custom-field').style.display = isOther ? 'block' : 'none';
+}
 function openExpenseModal(){
+  document.getElementById('ex-category').value = 'Закупка товара';
+  document.getElementById('ex-custom').value='';
   document.getElementById('ex-title').value='';
   document.getElementById('ex-amount').value='';
+  toggleExCustom();
   document.getElementById('ov-expense').classList.add('open');
 }
 function addExpense(){
-  const title = document.getElementById('ex-title').value.trim();
+  let category = document.getElementById('ex-category').value;
+  if(category === 'Прочее'){
+    category = document.getElementById('ex-custom').value.trim() || 'Прочее';
+  }
+  const comment = document.getElementById('ex-title').value.trim();
   const amount = parseFloat(document.getElementById('ex-amount').value);
-  if(!title || !amount){ haptic('rigid'); return; }
-  pushItem('expenses', {title, amount, date: new Date().toISOString()});
+  if(!category || !amount){ haptic('rigid'); return; }
+  const title = comment ? `${category} — ${comment}` : category;
+  pushItem('expenses', {title, category, amount, date: new Date().toISOString(), authorId: myId, authorName: myName});
   closeAll();
 }
 function deleteExpense(id){
@@ -637,23 +681,52 @@ function openMembers(){
 }
 
 // ---------- Render ----------
+let currentPeriod = 'all';
+function setPeriod(p){
+  currentPeriod = p;
+  document.querySelectorAll('.period-btn').forEach(b=> b.classList.toggle('active', b.dataset.period===p));
+  render();
+}
+function inPeriod(dateStr){
+  if(currentPeriod==='all' || !dateStr) return true;
+  const d = new Date(dateStr).getTime();
+  const now = Date.now();
+  const day = 86400000;
+  if(currentPeriod==='today'){
+    const start = new Date(); start.setHours(0,0,0,0);
+    return d >= start.getTime();
+  }
+  if(currentPeriod==='week') return d >= now - 7*day;
+  if(currentPeriod==='month') return d >= now - 30*day;
+  return true;
+}
+
 function render(){
-  // stock list
+  // stock list (с поиском)
   const stockEl = document.getElementById('stockList');
+  const searchEl = document.getElementById('stockSearch');
+  const searchVal = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  const filteredStock = searchVal ? db.stock.filter(s=> s.name.toLowerCase().includes(searchVal)) : db.stock;
+
   if(db.stock.length===0){
     stockEl.innerHTML = `<div class="empty"><div class="big">📦</div>Склад пуст.<br>Нажмите «+», чтобы добавить товар.</div>`;
+  } else if(filteredStock.length===0){
+    stockEl.innerHTML = `<div class="empty">Ничего не найдено по запросу «${escapeHtml(searchVal)}»</div>`;
   } else {
-    stockEl.innerHTML = db.stock.map(s=>`
+    stockEl.innerHTML = filteredStock.map(s=>{
+      const low = s.qty <= 1;
+      return `
       <div class="card">
         <div class="row-item">
           <div>
             <div class="name">${escapeHtml(s.name)}</div>
-            <div class="meta">Закупка ${fmt(s.cost)} · Продажа ${fmt(s.price)}</div>
-            <span class="badge stock">${s.qty} шт в наличии</span>
+            <div class="meta">Закупка ${fmt(s.cost)} · Продажа ${fmt(s.price)}${s.authorName ? ' · добавил ' + escapeHtml(s.authorName) : ''}</div>
+            <span class="badge stock" ${low ? 'style="background:var(--expense-dim); color:var(--expense);"' : ''}>${s.qty} шт в наличии${low ? ' · мало' : ''}</span>
           </div>
           <button class="del-btn" onclick="deleteStock('${s.id}')">✕</button>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
 
   // sales list
@@ -669,7 +742,7 @@ function render(){
         <div class="row-item">
           <div>
             <div class="name">${escapeHtml(s.name)}${s.custom ? ' <span class="badge stock" style="margin-top:0; vertical-align:middle;">свой товар</span>' : ''}</div>
-            <div class="meta">${d} · ${s.qty} шт × ${fmt(s.price)} · прибыль ${fmt(profit)}</div>
+            <div class="meta">${d} · ${s.qty} шт × ${fmt(s.price)} · прибыль ${fmt(profit)}${s.authorName ? ' · ' + escapeHtml(s.authorName) : ''}</div>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
             <span class="amount income">+${fmt(s.price*s.qty)}</span>
@@ -692,7 +765,7 @@ function render(){
         <div class="row-item">
           <div>
             <div class="name">${escapeHtml(e.title)}${e.auto ? ' <span class="badge stock" style="margin-top:0; vertical-align:middle;">авто</span>' : ''}</div>
-            <div class="meta">${d}</div>
+            <div class="meta">${d}${e.authorName ? ' · ' + escapeHtml(e.authorName) : ''}</div>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
             <span class="amount expense">-${fmt(e.amount)}</span>
@@ -703,12 +776,11 @@ function render(){
     }).join('');
   }
 
-  // totals
+  // totals (за всё время — для верхней плашки)
   const totalIncome = db.sales.reduce((a,s)=>a+s.price*s.qty,0);
   const totalExpense = db.expenses.reduce((a,e)=>a+e.amount,0);
   const stockCost = db.stock.reduce((a,s)=>a+s.qty*s.cost,0);
   const stockRev = db.stock.reduce((a,s)=>a+s.qty*s.price,0);
-  const soldCount = db.sales.reduce((a,s)=>a+s.qty,0);
   const net = totalIncome - totalExpense;
 
   document.getElementById('sumIncome').textContent = fmt(totalIncome);
@@ -719,11 +791,18 @@ function render(){
   netEl.textContent = (net>=0?'':'−') + fmt(Math.abs(net));
   netEl.className = 'amount ' + (net>=0 ? 'pos':'neg');
 
-  document.getElementById('s-income').textContent = fmt(totalIncome);
-  document.getElementById('s-expense').textContent = fmt(totalExpense);
+  // сводка — с учётом выбранного периода
+  const pSales = db.sales.filter(s=>inPeriod(s.date));
+  const pExpenses = db.expenses.filter(e=>inPeriod(e.date));
+  const pIncome = pSales.reduce((a,s)=>a+s.price*s.qty,0);
+  const pExpense = pExpenses.reduce((a,e)=>a+e.amount,0);
+  const pCount = pSales.reduce((a,s)=>a+s.qty,0);
+
+  document.getElementById('s-income').textContent = fmt(pIncome);
+  document.getElementById('s-expense').textContent = fmt(pExpense);
   document.getElementById('s-stockcost').textContent = fmt(stockCost);
   document.getElementById('s-stockrev').textContent = fmt(stockRev);
-  document.getElementById('s-count').textContent = soldCount;
+  document.getElementById('s-count').textContent = pCount;
 
   updateFab();
 }
