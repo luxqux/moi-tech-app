@@ -163,12 +163,12 @@
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <div>
       <div class="eyebrow" id="dateLabel">Сегодня</div>
-      <h1>Учёт техники</h1>
+      <h1 id="shopTitle">Учёт техники</h1>
     </div>
     <div style="display:flex; gap:8px;">
       <button onclick="shareInviteLink()" style="background:var(--accent-dim); border:1px solid var(--accent); color:var(--accent); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">📤 Пригласить</button>
       <button onclick="openMembers()" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">👥 <span id="membersCount">1</span></button>
-      <button id="roomBtn" onclick="document.getElementById('ov-room-settings').classList.add('open')" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">⚙️ <span id="roomLabel">—</span></button>
+      <button id="roomBtn" onclick="switchTab('tab-settings')" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">⚙️</button>
     </div>
   </div>
 </header>
@@ -209,6 +209,23 @@
       <button class="period-btn" data-period="week" onclick="setPeriod('week')">Неделя</button>
       <button class="period-btn" data-period="month" onclick="setPeriod('month')">Месяц</button>
     </div>
+    <div class="card" id="goal-card" style="cursor:pointer;" onclick="openGoalModal()">
+      <div class="row-item">
+        <span class="name" style="font-size:13px;">🎯 Цель на месяц</span>
+        <span style="font-size:11px; color:var(--text-dim);">изменить</span>
+      </div>
+      <div id="goal-progress-wrap" style="display:none; margin-top:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-dim); margin-bottom:6px;">
+          <span id="goal-current">0 ₽</span>
+          <span id="goal-target">из 0 ₽</span>
+        </div>
+        <div style="background:var(--surface-2); border-radius:20px; height:10px; overflow:hidden;">
+          <div id="goal-bar" style="height:100%; background:var(--accent); width:0%; border-radius:20px; transition:width .3s;"></div>
+        </div>
+      </div>
+      <div id="goal-empty" class="hint" style="margin:8px 0 0;">Цель не задана — нажмите, чтобы задать</div>
+    </div>
+
     <div class="card">
       <div class="row-item"><span class="name">Общий доход</span><span class="amount income" id="s-income">0 ₽</span></div>
     </div>
@@ -228,6 +245,11 @@
       <div class="row-item"><span class="name">Долг покупателей</span><span class="amount expense" id="s-debt">0 ₽</span></div>
     </div>
 
+    <div class="section-title">Прибыль за 7 дней</div>
+    <div class="card" id="chartCard" style="padding:16px 14px;">
+      <div id="chart7days"></div>
+    </div>
+
     <div class="section-title">Топ товаров</div>
     <div id="topProducts"></div>
 
@@ -236,6 +258,60 @@
       <div class="row-item">
         <span class="name" style="font-size:13px;">Скачать все данные (JSON)</span>
         <button onclick="exportBackup()" class="btn ghost" style="padding:9px 14px; font-size:12.5px; flex:none;">💾 Скачать</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-settings">
+    <div class="section-title">Магазин (общие настройки)</div>
+    <div class="card">
+      <div class="field" style="margin-bottom:10px;"><label>Название магазина</label><input id="set-shopname" placeholder="Учёт техники"></div>
+      <div class="field" style="margin-bottom:10px;">
+        <label>Валюта</label>
+        <select id="set-currency">
+          <option value="₽">₽ Рубль</option>
+          <option value="$">$ Доллар</option>
+          <option value="€">€ Евро</option>
+          <option value="₸">₸ Тенге</option>
+          <option value="₴">₴ Гривна</option>
+          <option value="сом">сом Сомони/Сом</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0;"><label>Порог низкого остатка (шт)</label><input id="set-lowstock" type="number" inputmode="numeric" placeholder="1"></div>
+      <button class="btn primary" style="width:100%; margin-top:14px;" onclick="saveShopSettings()">Сохранить</button>
+    </div>
+
+    <div class="section-title">Личные настройки</div>
+    <div class="card">
+      <div class="field" style="margin-bottom:0;">
+        <label>Статус оплаты по умолчанию</label>
+        <select id="set-default-payment" onchange="saveLocalSettings()">
+          <option value="paid">Оплачено полностью</option>
+          <option value="partial">Оплачено частично</option>
+          <option value="debt">В долг</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-title">Общий доступ</div>
+    <div class="card">
+      <div class="row-item"><span class="name" style="font-size:13px;">Пригласить друга</span><button onclick="shareInviteLink()" class="btn ghost" style="padding:9px 14px; font-size:12.5px; flex:none;">📤 Пригласить</button></div>
+    </div>
+    <div class="card">
+      <div class="row-item"><span class="name" style="font-size:13px;">Участники</span><button onclick="openMembers()" class="btn ghost" style="padding:9px 14px; font-size:12.5px; flex:none;">👥 Показать</button></div>
+    </div>
+
+    <div class="section-title">Опасная зона</div>
+    <div class="card" style="border-color:var(--expense-dim);">
+      <div class="row-item">
+        <span class="name" style="font-size:13px; color:var(--expense);">Покинуть комнату</span>
+        <button onclick="leaveRoom()" class="btn ghost" style="padding:9px 14px; font-size:12.5px; flex:none; color:var(--expense); border-color:var(--expense-dim);">Выйти</button>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--expense-dim);">
+      <div class="row-item">
+        <span class="name" style="font-size:13px; color:var(--expense);">Удалить все данные комнаты</span>
+        <button onclick="wipeAllData()" class="btn ghost" style="padding:9px 14px; font-size:12.5px; flex:none; color:var(--expense); border-color:var(--expense-dim);">Очистить</button>
       </div>
     </div>
   </section>
@@ -248,6 +324,7 @@
   <button data-tab="tab-sales"><span class="ic">💸</span>Продажи</button>
   <button data-tab="tab-expenses"><span class="ic">🧾</span>Расходы</button>
   <button data-tab="tab-summary"><span class="ic">📊</span>Итог</button>
+  <button data-tab="tab-settings"><span class="ic">⚙️</span>Настройки</button>
 </nav>
 
 <!-- Room gate -->
@@ -263,21 +340,6 @@
   </div>
 </div>
 
-<!-- Room settings (для тех, кто уже в комнате) -->
-<div class="overlay" id="ov-room-settings">
-  <div class="sheet">
-    <h2>Настройки комнаты</h2>
-    <div class="hint" style="margin-bottom:16px;">Все, кто перешёл по вашей ссылке-приглашению, видят те же данные.</div>
-    <div class="sheet-actions">
-      <button class="btn primary" onclick="shareInviteLink()" style="flex:1;">📤 Пригласить друга</button>
-    </div>
-    <div class="sheet-actions" style="margin-top:0;">
-      <button class="btn ghost" onclick="closeAll()" style="flex:1;">Закрыть</button>
-      <button class="btn ghost" onclick="leaveRoom()" style="flex:1; color:var(--expense); border-color:var(--expense-dim);">Покинуть комнату</button>
-    </div>
-  </div>
-</div>
-
 <!-- Modal: members -->
 <div class="overlay" id="ov-members">
   <div class="sheet">
@@ -289,17 +351,30 @@
   </div>
 </div>
 
+<!-- Modal: monthly goal -->
+<div class="overlay" id="ov-goal">
+  <div class="sheet">
+    <h2>Цель на месяц</h2>
+    <div class="hint" style="margin-bottom:16px;">Прогресс считается по чистой прибыли (доход минус расход) за текущий календарный месяц.</div>
+    <div class="field"><label>Целевая прибыль, ₽</label><input id="goal-input" type="number" inputmode="numeric" placeholder="300000"></div>
+    <div class="sheet-actions">
+      <button class="btn ghost" onclick="closeAll()">Отмена</button>
+      <button class="btn primary" onclick="saveGoal()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: add stock -->
 <div class="overlay" id="ov-stock">
   <div class="sheet">
-    <h2>Добавить товар на склад</h2>
+    <h2 id="stock-modal-title">Добавить товар на склад</h2>
     <div class="field"><label>Название</label><input id="st-name" placeholder="Ноутбук ASUS X515"></div>
     <div class="field"><label>Количество, шт</label><input id="st-qty" type="number" inputmode="numeric" placeholder="5"></div>
     <div class="field"><label>Цена закупки за шт, ₽</label><input id="st-cost" type="number" inputmode="numeric" placeholder="45000"></div>
     <div class="field"><label>Цена продажи за шт, ₽</label><input id="st-price" type="number" inputmode="numeric" placeholder="55000"></div>
     <div class="sheet-actions">
       <button class="btn ghost" onclick="closeAll()">Отмена</button>
-      <button class="btn primary" onclick="addStock()">Добавить</button>
+      <button class="btn primary" id="stock-modal-submit" onclick="addStock()">Добавить</button>
     </div>
   </div>
 </div>
@@ -307,11 +382,16 @@
 <!-- Modal: add sale -->
 <div class="overlay" id="ov-sale">
   <div class="sheet">
-    <h2>Оформить продажу</h2>
+    <h2 id="ov-sale-title">Оформить продажу</h2>
 
-    <div style="display:flex; gap:8px; margin-bottom:14px;">
+    <div style="display:flex; gap:8px; margin-bottom:14px;" id="sl-mode-row">
       <button type="button" id="sl-mode-stock" onclick="setSaleMode('stock')" class="btn primary" style="flex:1; padding:10px; font-size:13px;">Со склада</button>
       <button type="button" id="sl-mode-custom" onclick="setSaleMode('custom')" class="btn ghost" style="flex:1; padding:10px; font-size:13px;">Свой товар</button>
+    </div>
+
+    <div class="field" id="sl-edit-name" style="display:none;">
+      <label>Товар</label>
+      <div style="padding:11px 12px; background:var(--surface); border:1px solid var(--line); border-radius:10px; color:var(--text-dim); font-size:14.5px;" id="sl-edit-name-text"></div>
     </div>
 
     <div id="sl-stock-fields">
@@ -343,10 +423,14 @@
       <label>Внесено, ₽</label>
       <input id="sl-paid" type="number" inputmode="numeric" placeholder="0">
     </div>
+    <div id="sl-customer-fields" style="display:none;">
+      <div class="field"><label>Имя клиента</label><input id="sl-cust-name" placeholder="Иван Иванов"></div>
+      <div class="field"><label>Телефон (необязательно)</label><input id="sl-cust-phone" type="tel" placeholder="+7 900 000-00-00"></div>
+    </div>
 
     <div class="sheet-actions">
       <button class="btn ghost" onclick="closeAll()">Отмена</button>
-      <button class="btn primary" onclick="addSale()">Продать</button>
+      <button class="btn primary" id="sale-modal-submit" onclick="addSale()">Продать</button>
     </div>
   </div>
 </div>
@@ -354,7 +438,7 @@
 <!-- Modal: add expense -->
 <div class="overlay" id="ov-expense">
   <div class="sheet">
-    <h2>Добавить расход</h2>
+    <h2 id="expense-modal-title">Добавить расход</h2>
     <div class="field">
       <label>Категория</label>
       <select id="ex-category" onchange="toggleExCustom()">
@@ -375,7 +459,7 @@
     <div class="field"><label>Сумма, ₽</label><input id="ex-amount" type="number" inputmode="numeric" placeholder="15000"></div>
     <div class="sheet-actions">
       <button class="btn ghost" onclick="closeAll()">Отмена</button>
-      <button class="btn primary" onclick="addExpense()">Добавить</button>
+      <button class="btn primary" id="expense-modal-submit" onclick="addExpense()">Добавить</button>
     </div>
   </div>
 </div>
@@ -467,7 +551,7 @@ function leaveRoom(){
   document.getElementById('ov-room').classList.add('open');
 }
 function startSync(){
-  document.getElementById('roomLabel').textContent = 'комната';
+  showLoading(true);
   if(roomRef) roomRef.off();
   roomRef = fbdb.ref('rooms/' + room);
   roomRef.on('value', snap=>{
@@ -475,6 +559,10 @@ function startSync(){
     db.stock = objToArr(val.stock);
     db.sales = objToArr(val.sales);
     db.expenses = objToArr(val.expenses);
+    db.goal = val.goal || null;
+    db.settings = val.settings || {};
+    applyShopSettings();
+    showLoading(false);
     render();
   });
 
@@ -493,6 +581,84 @@ function startSync(){
     renderMembers();
   });
 }
+function showLoading(on){
+  let el = document.getElementById('loadingOverlay');
+  if(on){
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'loadingOverlay';
+      el.style.cssText = 'position:fixed; inset:0; background:var(--bg); z-index:15; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:13px; font-family:Inter,sans-serif;';
+      el.textContent = 'Загрузка данных...';
+      document.body.appendChild(el);
+    }
+  } else if(el){
+    el.remove();
+  }
+}
+function applyShopSettings(){
+  const s = db.settings || {};
+  currentCurrency = s.currency || '₽';
+  document.getElementById('shopTitle').textContent = s.shopName || 'Учёт техники';
+  const nameInput = document.getElementById('set-shopname');
+  const currInput = document.getElementById('set-currency');
+  const lowInput = document.getElementById('set-lowstock');
+  if(nameInput && document.activeElement !== nameInput) nameInput.value = s.shopName || '';
+  if(currInput && document.activeElement !== currInput) currInput.value = s.currency || '₽';
+  if(lowInput && document.activeElement !== lowInput) lowInput.value = s.lowStockThreshold != null ? s.lowStockThreshold : 1;
+}
+function saveShopSettings(){
+  const shopName = document.getElementById('set-shopname').value.trim();
+  const currency = document.getElementById('set-currency').value;
+  const lowStockThreshold = parseFloat(document.getElementById('set-lowstock').value);
+  roomRef.child('settings').update({
+    shopName: shopName || 'Учёт техники',
+    currency,
+    lowStockThreshold: isNaN(lowStockThreshold) ? 1 : lowStockThreshold
+  });
+  haptic('medium');
+}
+
+// ---------- Личные настройки (localStorage, только для этого устройства) ----------
+function loadLocalSettings(){
+  try{
+    const raw = localStorage.getItem('techstore_local_settings');
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+function saveLocalSettings(){
+  const defaultPayment = document.getElementById('set-default-payment').value;
+  localStorage.setItem('techstore_local_settings', JSON.stringify({defaultPayment}));
+  haptic('light');
+}
+const localSettings = loadLocalSettings();
+if(localSettings.defaultPayment){
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const el = document.getElementById('set-default-payment');
+    if(el) el.value = localSettings.defaultPayment;
+  });
+}
+
+function wipeAllData(){
+  confirmDelete('Удалить ВСЕ данные комнаты (склад, продажи, расходы, цель)? Это действие необратимо и затронет всех участников.', ()=>{
+    confirmDelete('Точно? Это последнее предупреждение — данные будет не восстановить.', ()=>{
+      roomRef.child('stock').remove();
+      roomRef.child('sales').remove();
+      roomRef.child('expenses').remove();
+      roomRef.child('goal').remove();
+    });
+  });
+}
+
+function openGoalModal(){
+  document.getElementById('goal-input').value = db.goal ? db.goal.amount : '';
+  document.getElementById('ov-goal').classList.add('open');
+}
+function saveGoal(){
+  const amount = parseFloat(document.getElementById('goal-input').value);
+  if(!amount){ haptic('rigid'); return; }
+  roomRef.child('goal').set({ amount, setBy: myName });
+  closeAll();
+}
 function objToArr(obj){
   if(!obj) return [];
   return Object.keys(obj).map(k=>({ ...obj[k], id:k }));
@@ -504,27 +670,27 @@ function pushItem(path, data){ return roomRef.child(path).push(data); }
 function updateItem(path, key, data){ return roomRef.child(path).child(key).update(data); }
 function removeItem(path, key){ return roomRef.child(path).child(key).remove(); }
 
-const fmt = n => (Math.round(n||0)).toLocaleString('ru-RU') + ' ₽';
+let currentCurrency = '₽';
+const fmt = n => (Math.round(n||0)).toLocaleString('ru-RU') + ' ' + currentCurrency;
 const todayStr = () => new Date().toLocaleDateString('ru-RU', {day:'numeric', month:'long'});
 document.getElementById('dateLabel').textContent = todayStr();
 
 // ---------- Tabs ----------
 document.querySelectorAll('nav button').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(btn.dataset.tab).classList.add('active');
-    updateFab();
-    haptic();
-  });
+  btn.addEventListener('click', ()=> switchTab(btn.dataset.tab));
 });
 
 let currentTab = 'tab-stock';
-document.querySelectorAll('nav button').forEach(b=> b.addEventListener('click', ()=> currentTab = b.dataset.tab));
+function switchTab(tab){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.querySelectorAll('section').forEach(s=>s.classList.toggle('active', s.id===tab));
+  currentTab = tab;
+  updateFab();
+  haptic();
+}
 
 function updateFab(){
-  document.getElementById('fab').style.display = currentTab === 'tab-summary' ? 'none' : 'flex';
+  document.getElementById('fab').style.display = (currentTab === 'tab-summary' || currentTab === 'tab-settings') ? 'none' : 'flex';
 }
 
 document.getElementById('fab').addEventListener('click', ()=>{
@@ -548,11 +714,16 @@ function confirmDelete(message, onConfirm){
 }
 
 // ---------- Stock ----------
-function openStockModal(){
-  document.getElementById('st-name').value='';
-  document.getElementById('st-qty').value='';
-  document.getElementById('st-cost').value='';
-  document.getElementById('st-price').value='';
+let editingStockId = null;
+function openStockModal(id){
+  editingStockId = id || null;
+  const item = id ? db.stock.find(s=>s.id===id) : null;
+  document.getElementById('stock-modal-title').textContent = item ? 'Изменить товар' : 'Добавить товар на склад';
+  document.getElementById('stock-modal-submit').textContent = item ? 'Сохранить' : 'Добавить';
+  document.getElementById('st-name').value = item ? item.name : '';
+  document.getElementById('st-qty').value = item ? item.qty : '';
+  document.getElementById('st-cost').value = item ? item.cost : '';
+  document.getElementById('st-price').value = item ? item.price : '';
   document.getElementById('ov-stock').classList.add('open');
 }
 function addStock(){
@@ -561,6 +732,14 @@ function addStock(){
   const cost = parseFloat(document.getElementById('st-cost').value);
   const price = parseFloat(document.getElementById('st-price').value);
   if(!name || !qty || !cost || !price){ haptic('rigid'); return; }
+
+  if(editingStockId){
+    updateItem('stock', editingStockId, {name, qty, cost, price});
+    editingStockId = null;
+    closeAll();
+    return;
+  }
+
   pushItem('stock', {name, qty, cost, price, authorId: myId, authorName: myName});
   pushItem('expenses', {
     title: `Закупка: ${name} (${qty} шт)`,
@@ -588,11 +767,44 @@ function setSaleMode(mode){
   if(mode==='stock'){ syncSalePrice(); }
   else { document.getElementById('sl-price').value=''; document.getElementById('sl-name').value=''; document.getElementById('sl-cost').value=''; }
 }
+let editingSaleId = null;
+let editingSaleMeta = null;
 function togglePaidField(){
   const status = document.getElementById('sl-payment').value;
   document.getElementById('sl-paid-field').style.display = status==='partial' ? 'block' : 'none';
+  document.getElementById('sl-customer-fields').style.display = (status==='partial' || status==='debt') ? 'block' : 'none';
 }
-function openSaleModal(){
+function openSaleModal(id){
+  editingSaleId = id || null;
+
+  if(id){
+    const item = db.sales.find(s=>s.id===id);
+    if(!item) return;
+    editingSaleMeta = { name:item.name, cost:item.cost, custom: !!item.custom, stockId: item.stockId || null };
+    document.getElementById('ov-sale-title').textContent = 'Изменить продажу';
+    document.getElementById('sale-modal-submit').textContent = 'Сохранить';
+    document.getElementById('sl-mode-row').style.display = 'none';
+    document.getElementById('sl-stock-fields').style.display = 'none';
+    document.getElementById('sl-custom-fields').style.display = 'none';
+    document.getElementById('sl-edit-name').style.display = 'block';
+    document.getElementById('sl-edit-name-text').textContent = item.name;
+    document.getElementById('sl-qty').value = item.qty;
+    document.getElementById('sl-price').value = item.price;
+    document.getElementById('sl-payment').value = item.paymentStatus || 'paid';
+    document.getElementById('sl-paid').value = item.paidAmount || '';
+    document.getElementById('sl-cust-name').value = item.customerName || '';
+    document.getElementById('sl-cust-phone').value = item.customerPhone || '';
+    togglePaidField();
+    document.getElementById('ov-sale').classList.add('open');
+    return;
+  }
+
+  editingSaleMeta = null;
+  document.getElementById('ov-sale-title').textContent = 'Оформить продажу';
+  document.getElementById('sale-modal-submit').textContent = 'Продать';
+  document.getElementById('sl-mode-row').style.display = 'flex';
+  document.getElementById('sl-edit-name').style.display = 'none';
+
   const sel = document.getElementById('sl-item');
   sel.innerHTML = '';
   if(db.stock.length===0){
@@ -606,8 +818,10 @@ function openSaleModal(){
     });
   }
   document.getElementById('sl-qty').value = 1;
-  document.getElementById('sl-payment').value = 'paid';
+  document.getElementById('sl-payment').value = (localSettings.defaultPayment) || 'paid';
   document.getElementById('sl-paid').value = '';
+  document.getElementById('sl-cust-name').value = '';
+  document.getElementById('sl-cust-phone').value = '';
   togglePaidField();
   setSaleMode('stock');
   document.getElementById('ov-sale').classList.add('open');
@@ -626,18 +840,39 @@ function addSale(){
   let paidAmount = total;
   if(paymentStatus === 'debt') paidAmount = 0;
   else if(paymentStatus === 'partial') paidAmount = Math.min(parseFloat(document.getElementById('sl-paid').value) || 0, total);
+  const hasDebt = paymentStatus === 'partial' || paymentStatus === 'debt';
+  const customerName = hasDebt ? document.getElementById('sl-cust-name').value.trim() : '';
+  const customerPhone = hasDebt ? document.getElementById('sl-cust-phone').value.trim() : '';
+
+  if(editingSaleId){
+    const old = db.sales.find(s=>s.id===editingSaleId);
+    if(!qty || !price){ haptic('rigid'); return; }
+    if(editingSaleMeta.stockId){
+      const stockItem = db.stock.find(s=>s.id===editingSaleMeta.stockId);
+      if(stockItem){
+        const qtyDelta = qty - old.qty;
+        const newStockQty = stockItem.qty - qtyDelta;
+        if(newStockQty < 0){ haptic('rigid'); return; }
+        updateItem('stock', stockItem.id, { qty: newStockQty });
+      }
+    }
+    updateItem('sales', editingSaleId, { qty, price, paymentStatus, paidAmount, customerName, customerPhone });
+    editingSaleId = null; editingSaleMeta = null;
+    closeAll();
+    return;
+  }
 
   if(saleMode === 'stock'){
     const id = document.getElementById('sl-item').value;
     const item = db.stock.find(s=>s.id===id);
     if(!item || !qty || !price || qty > item.qty){ haptic('rigid'); return; }
-    pushItem('sales', { name:item.name, qty, price, cost:item.cost, date: new Date().toISOString(), authorId: myId, authorName: myName, paymentStatus, paidAmount });
+    pushItem('sales', { name:item.name, qty, price, cost:item.cost, stockId:item.id, date: new Date().toISOString(), authorId: myId, authorName: myName, paymentStatus, paidAmount, customerName, customerPhone });
     updateItem('stock', item.id, { qty: item.qty - qty });
   } else {
     const name = document.getElementById('sl-name').value.trim();
     const cost = parseFloat(document.getElementById('sl-cost').value) || 0;
     if(!name || !qty || !price){ haptic('rigid'); return; }
-    pushItem('sales', { name, qty, price, cost, date: new Date().toISOString(), custom: true, authorId: myId, authorName: myName, paymentStatus, paidAmount });
+    pushItem('sales', { name, qty, price, cost, date: new Date().toISOString(), custom: true, authorId: myId, authorName: myName, paymentStatus, paidAmount, customerName, customerPhone });
   }
   closeAll();
 }
@@ -653,15 +888,32 @@ function deleteSale(id){
 }
 
 // ---------- Expenses ----------
+let editingExpenseId = null;
+const EXPENSE_CATEGORIES = ["Закупка товара","Аренда","Реклама","Зарплата","Доставка/логистика","Ремонт/обслуживание"];
 function toggleExCustom(){
   const isOther = document.getElementById('ex-category').value === 'Прочее';
   document.getElementById('ex-custom-field').style.display = isOther ? 'block' : 'none';
 }
-function openExpenseModal(){
-  document.getElementById('ex-category').value = 'Закупка товара';
-  document.getElementById('ex-custom').value='';
-  document.getElementById('ex-title').value='';
-  document.getElementById('ex-amount').value='';
+function openExpenseModal(id){
+  editingExpenseId = id || null;
+  const item = id ? db.expenses.find(e=>e.id===id) : null;
+  document.getElementById('expense-modal-title').textContent = item ? 'Изменить расход' : 'Добавить расход';
+  document.getElementById('expense-modal-submit').textContent = item ? 'Сохранить' : 'Добавить';
+
+  if(item){
+    const known = EXPENSE_CATEGORIES.includes(item.category);
+    document.getElementById('ex-category').value = known ? item.category : 'Прочее';
+    document.getElementById('ex-custom').value = known ? '' : (item.category || '');
+    const comment = item.category && item.title.startsWith(item.category + ' — ')
+      ? item.title.slice(item.category.length + 3) : (item.category ? '' : item.title);
+    document.getElementById('ex-title').value = comment;
+    document.getElementById('ex-amount').value = item.amount;
+  } else {
+    document.getElementById('ex-category').value = 'Закупка товара';
+    document.getElementById('ex-custom').value='';
+    document.getElementById('ex-title').value='';
+    document.getElementById('ex-amount').value='';
+  }
   toggleExCustom();
   document.getElementById('ov-expense').classList.add('open');
 }
@@ -674,6 +926,14 @@ function addExpense(){
   const amount = parseFloat(document.getElementById('ex-amount').value);
   if(!category || !amount){ haptic('rigid'); return; }
   const title = comment ? `${category} — ${comment}` : category;
+
+  if(editingExpenseId){
+    updateItem('expenses', editingExpenseId, {title, category, amount});
+    editingExpenseId = null;
+    closeAll();
+    return;
+  }
+
   pushItem('expenses', {title, category, amount, date: new Date().toISOString(), authorId: myId, authorName: myName});
   closeAll();
 }
@@ -760,7 +1020,7 @@ function render(){
     stockEl.innerHTML = `<div class="empty">Ничего не найдено по запросу «${escapeHtml(searchVal)}»</div>`;
   } else {
     stockEl.innerHTML = filteredStock.map(s=>{
-      const low = s.qty <= 1;
+      const low = s.qty <= (db.settings && db.settings.lowStockThreshold != null ? db.settings.lowStockThreshold : 1);
       return `
       <div class="card">
         <div class="row-item">
@@ -769,7 +1029,10 @@ function render(){
             <div class="meta">Закупка ${fmt(s.cost)} · Продажа ${fmt(s.price)}${s.authorName ? ' · добавил ' + escapeHtml(s.authorName) : ''}</div>
             <span class="badge stock" ${low ? 'style="background:var(--expense-dim); color:var(--expense);"' : ''}>${s.qty} шт в наличии${low ? ' · мало' : ''}</span>
           </div>
-          <button class="del-btn" onclick="deleteStock('${s.id}')">✕</button>
+          <div style="display:flex; gap:4px;">
+            <button class="del-btn" onclick="openStockModal('${s.id}')">✎</button>
+            <button class="del-btn" onclick="deleteStock('${s.id}')">✕</button>
+          </div>
         </div>
       </div>`;
     }).join('');
@@ -796,10 +1059,12 @@ function render(){
           <div>
             <div class="name">${escapeHtml(s.name)}${s.custom ? ' <span class="badge stock" style="margin-top:0; vertical-align:middle;">свой товар</span>' : ''} ${statusBadge}</div>
             <div class="meta">${d} · ${s.qty} шт × ${fmt(s.price)} · прибыль ${fmt(profit)}${s.authorName ? ' · ' + escapeHtml(s.authorName) : ''}</div>
+            ${s.customerName ? `<div class="meta" style="margin-top:3px;">👤 ${escapeHtml(s.customerName)}${s.customerPhone ? ' · <a href="tel:'+escapeHtml(s.customerPhone)+'" style="color:var(--accent); text-decoration:none;">📞 '+escapeHtml(s.customerPhone)+'</a>' : ''}</div>` : ''}
             ${owed > 0 ? `<button onclick="markSalePaid('${s.id}')" style="margin-top:8px; background:var(--accent-dim); border:1px solid var(--accent); color:var(--accent); font-size:11px; font-weight:600; padding:5px 10px; border-radius:20px; font-family:'Inter',sans-serif;">✓ Отметить оплаченным</button>` : ''}
           </div>
-          <div style="display:flex; align-items:center; gap:8px;">
+          <div style="display:flex; align-items:center; gap:4px;">
             <span class="amount income">+${fmt(total)}</span>
+            <button class="del-btn" onclick="openSaleModal('${s.id}')">✎</button>
             <button class="del-btn" onclick="deleteSale('${s.id}')">✕</button>
           </div>
         </div>
@@ -821,8 +1086,9 @@ function render(){
             <div class="name">${escapeHtml(e.title)}${e.auto ? ' <span class="badge stock" style="margin-top:0; vertical-align:middle;">авто</span>' : ''}</div>
             <div class="meta">${d}${e.authorName ? ' · ' + escapeHtml(e.authorName) : ''}</div>
           </div>
-          <div style="display:flex; align-items:center; gap:8px;">
+          <div style="display:flex; align-items:center; gap:4px;">
             <span class="amount expense">-${fmt(e.amount)}</span>
+            <button class="del-btn" onclick="openExpenseModal('${e.id}')">✎</button>
             <button class="del-btn" onclick="deleteExpense('${e.id}')">✕</button>
           </div>
         </div>
@@ -858,6 +1124,9 @@ function render(){
   document.getElementById('s-stockrev').textContent = fmt(stockRev);
   document.getElementById('s-count').textContent = pCount;
 
+  // цель на месяц
+  renderGoal();
+
   // долг покупателей (за всё время, не зависит от периода)
   const totalDebt = db.sales.reduce((a,s)=>{
     const total = s.price*s.qty;
@@ -871,6 +1140,9 @@ function render(){
   } else {
     debtCard.style.display='none';
   }
+
+  // график прибыли за 7 дней
+  renderChart();
 
   // топ товаров по выручке
   const topEl = document.getElementById('topProducts');
@@ -897,6 +1169,77 @@ function render(){
   }
 
   updateFab();
+}
+
+function renderGoal(){
+  const wrap = document.getElementById('goal-progress-wrap');
+  const empty = document.getElementById('goal-empty');
+  if(!db.goal || !db.goal.amount){
+    wrap.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const income = db.sales.filter(s=>new Date(s.date).getTime() >= monthStart).reduce((a,s)=>a+s.price*s.qty,0);
+  const expense = db.expenses.filter(e=>new Date(e.date).getTime() >= monthStart).reduce((a,e)=>a+e.amount,0);
+  const current = income - expense;
+  const pct = Math.max(0, Math.min(100, (current / db.goal.amount) * 100));
+
+  wrap.style.display = 'block';
+  empty.style.display = 'none';
+  document.getElementById('goal-current').textContent = fmt(current);
+  document.getElementById('goal-target').textContent = 'из ' + fmt(db.goal.amount);
+  const bar = document.getElementById('goal-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = current >= db.goal.amount ? 'var(--income)' : (current < 0 ? 'var(--expense)' : 'var(--accent)');
+}
+
+function renderChart(){
+  const el = document.getElementById('chart7days');
+  if(!el) return;
+  const days = [];
+  for(let i=6; i>=0; i--){
+    const d = new Date();
+    d.setHours(0,0,0,0);
+    d.setDate(d.getDate()-i);
+    days.push(d);
+  }
+  const values = days.map(day=>{
+    const next = new Date(day); next.setDate(next.getDate()+1);
+    const income = db.sales.filter(s=>{
+      const t = new Date(s.date).getTime();
+      return t >= day.getTime() && t < next.getTime();
+    }).reduce((a,s)=>a+s.price*s.qty,0);
+    const expense = db.expenses.filter(e=>{
+      const t = new Date(e.date).getTime();
+      return t >= day.getTime() && t < next.getTime();
+    }).reduce((a,e)=>a+e.amount,0);
+    return income - expense;
+  });
+
+  const max = Math.max(1, ...values.map(v=>Math.abs(v)));
+  const w = 300, h = 110, barW = w/7 - 8, midY = h/2;
+
+  const bars = values.map((v,i)=>{
+    const x = i*(w/7) + 4;
+    const barH = Math.max(2, (Math.abs(v)/max) * (h/2 - 6));
+    const y = v>=0 ? midY - barH : midY;
+    const color = v>=0 ? 'var(--income)' : 'var(--expense)';
+    return `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="3" fill="${color}"></rect>`;
+  }).join('');
+
+  const labels = days.map((d,i)=>{
+    const x = i*(w/7) + (w/7)/2;
+    const lbl = d.toLocaleDateString('ru-RU',{weekday:'short'}).replace('.','');
+    return `<text x="${x}" y="${h-2}" font-size="9" fill="var(--text-dim)" text-anchor="middle" font-family="Inter,sans-serif">${lbl}</text>`;
+  }).join('');
+
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" style="width:100%; height:${h}px; overflow:visible;">
+    <line x1="0" y1="${midY}" x2="${w}" y2="${midY}" stroke="var(--line)" stroke-width="1"></line>
+    ${bars}
+    ${labels}
+  </svg>`;
 }
 
 function exportBackup(){
