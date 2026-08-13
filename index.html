@@ -224,6 +224,20 @@
     <div class="card">
       <div class="row-item"><span class="name">Товаров продано (шт)</span><span class="amount" id="s-count">0</span></div>
     </div>
+    <div class="card" id="s-debt-card" style="display:none;">
+      <div class="row-item"><span class="name">Долг покупателей</span><span class="amount expense" id="s-debt">0 ₽</span></div>
+    </div>
+
+    <div class="section-title">Топ товаров</div>
+    <div id="topProducts"></div>
+
+    <div class="section-title">Резервная копия</div>
+    <div class="card">
+      <div class="row-item">
+        <span class="name" style="font-size:13px;">Скачать все данные (JSON)</span>
+        <button onclick="exportBackup()" class="btn ghost" style="padding:9px 14px; font-size:12.5px; flex:none;">💾 Скачать</button>
+      </div>
+    </div>
   </section>
 </main>
 
@@ -316,6 +330,20 @@
 
     <div class="field"><label>Количество, шт</label><input id="sl-qty" type="number" inputmode="numeric" value="1"></div>
     <div class="field"><label>Цена продажи за шт, ₽</label><input id="sl-price" type="number" inputmode="numeric"></div>
+
+    <div class="field">
+      <label>Статус оплаты</label>
+      <select id="sl-payment" onchange="togglePaidField()">
+        <option value="paid">Оплачено полностью</option>
+        <option value="partial">Оплачено частично</option>
+        <option value="debt">В долг (не оплачено)</option>
+      </select>
+    </div>
+    <div class="field" id="sl-paid-field" style="display:none;">
+      <label>Внесено, ₽</label>
+      <input id="sl-paid" type="number" inputmode="numeric" placeholder="0">
+    </div>
+
     <div class="sheet-actions">
       <button class="btn ghost" onclick="closeAll()">Отмена</button>
       <button class="btn primary" onclick="addSale()">Продать</button>
@@ -560,6 +588,10 @@ function setSaleMode(mode){
   if(mode==='stock'){ syncSalePrice(); }
   else { document.getElementById('sl-price').value=''; document.getElementById('sl-name').value=''; document.getElementById('sl-cost').value=''; }
 }
+function togglePaidField(){
+  const status = document.getElementById('sl-payment').value;
+  document.getElementById('sl-paid-field').style.display = status==='partial' ? 'block' : 'none';
+}
 function openSaleModal(){
   const sel = document.getElementById('sl-item');
   sel.innerHTML = '';
@@ -574,6 +606,9 @@ function openSaleModal(){
     });
   }
   document.getElementById('sl-qty').value = 1;
+  document.getElementById('sl-payment').value = 'paid';
+  document.getElementById('sl-paid').value = '';
+  togglePaidField();
   setSaleMode('stock');
   document.getElementById('ov-sale').classList.add('open');
 }
@@ -586,20 +621,31 @@ function syncSalePrice(){
 function addSale(){
   const qty = parseFloat(document.getElementById('sl-qty').value);
   const price = parseFloat(document.getElementById('sl-price').value);
+  const paymentStatus = document.getElementById('sl-payment').value;
+  const total = qty * price;
+  let paidAmount = total;
+  if(paymentStatus === 'debt') paidAmount = 0;
+  else if(paymentStatus === 'partial') paidAmount = Math.min(parseFloat(document.getElementById('sl-paid').value) || 0, total);
 
   if(saleMode === 'stock'){
     const id = document.getElementById('sl-item').value;
     const item = db.stock.find(s=>s.id===id);
     if(!item || !qty || !price || qty > item.qty){ haptic('rigid'); return; }
-    pushItem('sales', { name:item.name, qty, price, cost:item.cost, date: new Date().toISOString(), authorId: myId, authorName: myName });
+    pushItem('sales', { name:item.name, qty, price, cost:item.cost, date: new Date().toISOString(), authorId: myId, authorName: myName, paymentStatus, paidAmount });
     updateItem('stock', item.id, { qty: item.qty - qty });
   } else {
     const name = document.getElementById('sl-name').value.trim();
     const cost = parseFloat(document.getElementById('sl-cost').value) || 0;
     if(!name || !qty || !price){ haptic('rigid'); return; }
-    pushItem('sales', { name, qty, price, cost, date: new Date().toISOString(), custom: true, authorId: myId, authorName: myName });
+    pushItem('sales', { name, qty, price, cost, date: new Date().toISOString(), custom: true, authorId: myId, authorName: myName, paymentStatus, paidAmount });
   }
   closeAll();
+}
+function markSalePaid(id){
+  const s = db.sales.find(x=>x.id===id);
+  if(!s) return;
+  updateItem('sales', id, { paymentStatus: 'paid', paidAmount: s.price * s.qty });
+  haptic('medium');
 }
 function deleteSale(id){
   const item = db.sales.find(s=>s.id===id);
@@ -737,15 +783,23 @@ function render(){
     salesEl.innerHTML = [...db.sales].reverse().map(s=>{
       const profit = (s.price - s.cost) * s.qty;
       const d = new Date(s.date).toLocaleDateString('ru-RU', {day:'numeric', month:'short'});
+      const total = s.price * s.qty;
+      const paid = s.paidAmount != null ? s.paidAmount : total;
+      const owed = total - paid;
+      const status = s.paymentStatus || 'paid';
+      let statusBadge = '';
+      if(status === 'debt') statusBadge = `<span class="badge stock" style="background:var(--expense-dim); color:var(--expense); margin-top:0; vertical-align:middle;">долг ${fmt(owed)}</span>`;
+      else if(status === 'partial') statusBadge = `<span class="badge stock" style="background:var(--stock-dim); color:var(--stock); margin-top:0; vertical-align:middle;">частично, долг ${fmt(owed)}</span>`;
       return `
       <div class="card">
         <div class="row-item">
           <div>
-            <div class="name">${escapeHtml(s.name)}${s.custom ? ' <span class="badge stock" style="margin-top:0; vertical-align:middle;">свой товар</span>' : ''}</div>
+            <div class="name">${escapeHtml(s.name)}${s.custom ? ' <span class="badge stock" style="margin-top:0; vertical-align:middle;">свой товар</span>' : ''} ${statusBadge}</div>
             <div class="meta">${d} · ${s.qty} шт × ${fmt(s.price)} · прибыль ${fmt(profit)}${s.authorName ? ' · ' + escapeHtml(s.authorName) : ''}</div>
+            ${owed > 0 ? `<button onclick="markSalePaid('${s.id}')" style="margin-top:8px; background:var(--accent-dim); border:1px solid var(--accent); color:var(--accent); font-size:11px; font-weight:600; padding:5px 10px; border-radius:20px; font-family:'Inter',sans-serif;">✓ Отметить оплаченным</button>` : ''}
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
-            <span class="amount income">+${fmt(s.price*s.qty)}</span>
+            <span class="amount income">+${fmt(total)}</span>
             <button class="del-btn" onclick="deleteSale('${s.id}')">✕</button>
           </div>
         </div>
@@ -804,7 +858,58 @@ function render(){
   document.getElementById('s-stockrev').textContent = fmt(stockRev);
   document.getElementById('s-count').textContent = pCount;
 
+  // долг покупателей (за всё время, не зависит от периода)
+  const totalDebt = db.sales.reduce((a,s)=>{
+    const total = s.price*s.qty;
+    const paid = s.paidAmount != null ? s.paidAmount : total;
+    return a + Math.max(0, total-paid);
+  },0);
+  const debtCard = document.getElementById('s-debt-card');
+  if(totalDebt > 0){
+    debtCard.style.display='block';
+    document.getElementById('s-debt').textContent = fmt(totalDebt);
+  } else {
+    debtCard.style.display='none';
+  }
+
+  // топ товаров по выручке
+  const topEl = document.getElementById('topProducts');
+  if(db.sales.length===0){
+    topEl.innerHTML = `<div class="empty">Пока нет продаж для статистики</div>`;
+  } else {
+    const map = {};
+    db.sales.forEach(s=>{
+      if(!map[s.name]) map[s.name] = {qty:0, revenue:0};
+      map[s.name].qty += s.qty;
+      map[s.name].revenue += s.price*s.qty;
+    });
+    const top = Object.entries(map).sort((a,b)=>b[1].revenue-a[1].revenue).slice(0,5);
+    topEl.innerHTML = top.map(([name, d], i)=>`
+      <div class="card">
+        <div class="row-item">
+          <div>
+            <div class="name">${i+1}. ${escapeHtml(name)}</div>
+            <div class="meta">${d.qty} шт продано</div>
+          </div>
+          <span class="amount income">${fmt(d.revenue)}</span>
+        </div>
+      </div>`).join('');
+  }
+
   updateFab();
+}
+
+function exportBackup(){
+  const data = { room, exportedAt: new Date().toISOString(), stock: db.stock, sales: db.sales, expenses: db.expenses };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `backup-${room}-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function escapeHtml(str){
