@@ -155,6 +155,7 @@
     font-family:'Inter',sans-serif; font-size:12px; font-weight:600; padding:9px 4px; border-radius:10px;
   }
   .period-btn.active{background:var(--accent-dim); border-color:var(--accent); color:var(--accent);}
+  .solo-only{display:none;}
 </style>
 </head>
 <body>
@@ -166,8 +167,9 @@
       <h1 id="shopTitle">Учёт техники</h1>
     </div>
     <div style="display:flex; gap:8px;">
-      <button onclick="shareInviteLink()" style="background:var(--accent-dim); border:1px solid var(--accent); color:var(--accent); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">📤 Пригласить</button>
-      <button onclick="openMembers()" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">👥 <span id="membersCount">1</span></button>
+      <button onclick="shareInviteLink()" class="shared-only" style="background:var(--accent-dim); border:1px solid var(--accent); color:var(--accent); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">📤 Пригласить</button>
+      <button onclick="openMembers()" class="shared-only" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">👥 <span id="membersCount">1</span></button>
+      <span class="solo-only" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">👤 личный режим</span>
       <button id="roomBtn" onclick="switchTab('tab-settings')" style="background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:11px; font-weight:600; padding:7px 12px; border-radius:20px; font-family:'Inter',sans-serif;">⚙️</button>
     </div>
   </div>
@@ -187,7 +189,16 @@
   <section id="tab-stock" class="active">
     <div class="section-title">Товары в наличии</div>
     <input id="stockSearch" placeholder="Поиск по названию..." oninput="render()"
-      style="width:100%; background:var(--surface); border:1px solid var(--line); color:var(--text); border-radius:12px; padding:11px 14px; font-size:14px; font-family:'Inter',sans-serif; margin-bottom:12px;">
+      style="width:100%; background:var(--surface); border:1px solid var(--line); color:var(--text); border-radius:12px; padding:11px 14px; font-size:14px; font-family:'Inter',sans-serif; margin-bottom:10px;">
+    <select id="stockSort" onchange="render()"
+      style="width:100%; background:var(--surface); border:1px solid var(--line); color:var(--text); border-radius:12px; padding:10px 14px; font-size:13.5px; font-family:'Inter',sans-serif; margin-bottom:12px;">
+      <option value="qty-asc">Сначала мало на складе</option>
+      <option value="qty-desc">Сначала много на складе</option>
+      <option value="name-asc">По названию (А-Я)</option>
+      <option value="price-desc">Сначала дороже (продажа)</option>
+      <option value="price-asc">Сначала дешевле (продажа)</option>
+      <option value="cost-desc">По сумме закупки (больше→меньше)</option>
+    </select>
     <div id="stockList"></div>
   </section>
 
@@ -199,6 +210,18 @@
   <section id="tab-expenses">
     <div class="section-title">Расходы</div>
     <div id="expensesList"></div>
+  </section>
+
+  <section id="tab-balance">
+    <div class="section-title">Текущий баланс</div>
+    <div class="hero" style="margin:0 0 16px;">
+      <div class="label">Наличные / на счету</div>
+      <div class="amount" id="balanceAmount" style="color:var(--text);">0 ₽</div>
+      <div class="sheet-actions" style="margin-top:14px;">
+        <button class="btn primary" style="flex:1;" onclick="openBalanceModal()">✎ Изменить баланс</button>
+      </div>
+    </div>
+    <div class="hint" style="margin-top:-8px;">Баланс не считается автоматически — вводите вручную то, сколько денег у вас есть сейчас (наличные + счёт), и корректируйте при необходимости.</div>
   </section>
 
   <section id="tab-summary">
@@ -293,24 +316,30 @@
       </div>
     </div>
 
-    <div class="section-title">Общий доступ</div>
-    <div class="card">
+    <div class="section-title shared-only">Общий доступ</div>
+    <div class="card shared-only">
       <div class="row-item"><span class="name" style="font-size:13px;">Пригласить друга</span><button onclick="shareInviteLink()" class="btn ghost" style="padding:9px 14px; font-size:12.5px; flex:none;">📤 Пригласить</button></div>
     </div>
-    <div class="card">
+    <div class="card shared-only">
       <div class="row-item"><span class="name" style="font-size:13px;">Участники</span><button onclick="openMembers()" class="btn ghost" style="padding:9px 14px; font-size:12.5px; flex:none;">👥 Показать</button></div>
     </div>
 
     <div class="section-title">Опасная зона</div>
-    <div class="card" style="border-color:var(--expense-dim);">
+    <div class="card shared-only" style="border-color:var(--expense-dim);">
       <div class="row-item">
         <span class="name" style="font-size:13px; color:var(--expense);">Покинуть комнату</span>
         <button onclick="leaveRoom()" class="btn ghost" style="padding:9px 14px; font-size:12.5px; flex:none; color:var(--expense); border-color:var(--expense-dim);">Выйти</button>
       </div>
     </div>
+    <div class="card solo-only" style="border-color:var(--expense-dim);">
+      <div class="row-item">
+        <span class="name" style="font-size:13px; color:var(--expense);">Переключиться на общий доступ</span>
+        <button onclick="leaveRoom()" class="btn ghost" style="padding:9px 14px; font-size:12.5px; flex:none; color:var(--expense); border-color:var(--expense-dim);">Выйти из личного режима</button>
+      </div>
+    </div>
     <div class="card" style="border-color:var(--expense-dim);">
       <div class="row-item">
-        <span class="name" style="font-size:13px; color:var(--expense);">Удалить все данные комнаты</span>
+        <span class="name" style="font-size:13px; color:var(--expense);">Удалить все данные</span>
         <button onclick="wipeAllData()" class="btn ghost" style="padding:9px 14px; font-size:12.5px; flex:none; color:var(--expense); border-color:var(--expense-dim);">Очистить</button>
       </div>
     </div>
@@ -323,6 +352,7 @@
   <button data-tab="tab-stock" class="active"><span class="ic">📦</span>Склад</button>
   <button data-tab="tab-sales"><span class="ic">💸</span>Продажи</button>
   <button data-tab="tab-expenses"><span class="ic">🧾</span>Расходы</button>
+  <button data-tab="tab-balance"><span class="ic">💰</span>Баланс</button>
   <button data-tab="tab-summary"><span class="ic">📊</span>Итог</button>
   <button data-tab="tab-settings"><span class="ic">⚙️</span>Настройки</button>
 </nav>
@@ -330,12 +360,17 @@
 <!-- Room gate -->
 <div class="overlay open" id="ov-room" style="align-items:center;">
   <div class="sheet" style="border-radius:20px;">
-    <h2>Общий доступ</h2>
+    <h2>Как будете работать?</h2>
     <div class="hint" style="margin-bottom:16px;">
-      Создайте общее рабочее пространство одной кнопкой, а затем пригласите друга по ссылке — он подключится автоматически, без ввода названий.
+      Можно вести учёт вдвоём с синхронизацией в реальном времени, или одному — тогда данные хранятся только на этом устройстве.
     </div>
-    <div class="sheet-actions">
-      <button class="btn primary" onclick="createRoom()" style="flex:1;">Создать общий доступ</button>
+    <div class="card" style="margin-bottom:10px; cursor:pointer;" onclick="createRoom()">
+      <div class="name" style="margin-bottom:3px;">👥 Общий доступ</div>
+      <div class="meta">Пригласите друга по ссылке — оба видите одни и те же данные в реальном времени</div>
+    </div>
+    <div class="card" style="cursor:pointer;" onclick="startSolo()">
+      <div class="name" style="margin-bottom:3px;">👤 Личный режим</div>
+      <div class="meta">Работаете одни, без интернета и без Firebase — данные хранятся только на этом телефоне</div>
     </div>
   </div>
 </div>
@@ -347,6 +382,18 @@
     <div id="membersList"></div>
     <div class="sheet-actions">
       <button class="btn ghost" onclick="closeAll()" style="flex:1;">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: balance -->
+<div class="overlay" id="ov-balance">
+  <div class="sheet">
+    <h2>Изменить баланс</h2>
+    <div class="field"><label>Новое значение, ₽</label><input id="balance-input" type="number" inputmode="numeric" placeholder="0"></div>
+    <div class="sheet-actions">
+      <button class="btn ghost" onclick="closeAll()">Отмена</button>
+      <button class="btn primary" onclick="saveBalance()">Сохранить</button>
     </div>
   </div>
 </div>
@@ -536,8 +583,11 @@ let roomRef = null;
 
 function createRoom(){
   room = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  mode = 'shared';
+  localStorage.setItem('techstore_mode', 'shared');
   localStorage.setItem('techstore_room', room);
   document.getElementById('ov-room').classList.remove('open');
+  applySoloUI();
   startSync();
   setTimeout(shareInviteLink, 400);
 }
@@ -545,7 +595,10 @@ function leaveRoom(){
   if(roomRef) roomRef.off();
   if(window._presenceInterval) clearInterval(window._presenceInterval);
   localStorage.removeItem('techstore_room');
+  localStorage.removeItem('techstore_mode');
   room = '';
+  mode = null;
+  soloRaw = null;
   db = { stock:[], sales:[], expenses:[], members:[] };
   closeAll();
   document.getElementById('ov-room').classList.add('open');
@@ -560,6 +613,7 @@ function startSync(){
     db.sales = objToArr(val.sales);
     db.expenses = objToArr(val.expenses);
     db.goal = val.goal || null;
+    db.balance = val.balance || 0;
     db.settings = val.settings || {};
     applyShopSettings();
     showLoading(false);
@@ -610,11 +664,17 @@ function saveShopSettings(){
   const shopName = document.getElementById('set-shopname').value.trim();
   const currency = document.getElementById('set-currency').value;
   const lowStockThreshold = parseFloat(document.getElementById('set-lowstock').value);
-  roomRef.child('settings').update({
+  const patch = {
     shopName: shopName || 'Учёт техники',
     currency,
     lowStockThreshold: isNaN(lowStockThreshold) ? 1 : lowStockThreshold
-  });
+  };
+  if(mode === 'solo'){
+    soloRaw.settings = { ...(soloRaw.settings||{}), ...patch };
+    saveSoloDB();
+  } else {
+    roomRef.child('settings').update(patch);
+  }
   haptic('medium');
 }
 
@@ -639,8 +699,13 @@ if(localSettings.defaultPayment){
 }
 
 function wipeAllData(){
-  confirmDelete('Удалить ВСЕ данные комнаты (склад, продажи, расходы, цель)? Это действие необратимо и затронет всех участников.', ()=>{
+  confirmDelete('Удалить ВСЕ данные (склад, продажи, расходы, цель, баланс)? Это действие необратимо.', ()=>{
     confirmDelete('Точно? Это последнее предупреждение — данные будет не восстановить.', ()=>{
+      if(mode === 'solo'){
+        soloRaw = { stock:{}, sales:{}, expenses:{}, goal:null, settings: soloRaw.settings||{}, balance:0 };
+        saveSoloDB();
+        return;
+      }
       roomRef.child('stock').remove();
       roomRef.child('sales').remove();
       roomRef.child('expenses').remove();
@@ -649,6 +714,21 @@ function wipeAllData(){
   });
 }
 
+function openBalanceModal(){
+  document.getElementById('balance-input').value = db.balance || 0;
+  document.getElementById('ov-balance').classList.add('open');
+}
+function saveBalance(){
+  const val = parseFloat(document.getElementById('balance-input').value);
+  if(isNaN(val)){ haptic('rigid'); return; }
+  if(mode === 'solo'){
+    soloRaw.balance = val;
+    saveSoloDB();
+  } else {
+    roomRef.child('balance').set(val);
+  }
+  closeAll();
+}
 function openGoalModal(){
   document.getElementById('goal-input').value = db.goal ? db.goal.amount : '';
   document.getElementById('ov-goal').classList.add('open');
@@ -656,6 +736,12 @@ function openGoalModal(){
 function saveGoal(){
   const amount = parseFloat(document.getElementById('goal-input').value);
   if(!amount){ haptic('rigid'); return; }
+  if(mode === 'solo'){
+    soloRaw.goal = { amount, setBy: myName };
+    saveSoloDB();
+    closeAll();
+    return;
+  }
   roomRef.child('goal').set({ amount, setBy: myName });
   closeAll();
 }
@@ -663,12 +749,78 @@ function objToArr(obj){
   if(!obj) return [];
   return Object.keys(obj).map(k=>({ ...obj[k], id:k }));
 }
-if(room){ document.getElementById('ov-room').classList.remove('open'); startSync(); }
 
-// generic helpers replacing old localStorage save()
-function pushItem(path, data){ return roomRef.child(path).push(data); }
-function updateItem(path, key, data){ return roomRef.child(path).child(key).update(data); }
-function removeItem(path, key){ return roomRef.child(path).child(key).remove(); }
+// ---------- Личный режим (без общего доступа, только localStorage) ----------
+let mode = localStorage.getItem('techstore_mode') || null;
+let soloRaw = null;
+function genKey(){ return 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function loadSoloRaw(){
+  try{
+    const raw = localStorage.getItem('techstore_solo_data');
+    return raw ? JSON.parse(raw) : { stock:{}, sales:{}, expenses:{}, goal:null, settings:{}, balance:0 };
+  }catch(e){ return { stock:{}, sales:{}, expenses:{}, goal:null, settings:{}, balance:0 }; }
+}
+function saveSoloDB(){
+  localStorage.setItem('techstore_solo_data', JSON.stringify(soloRaw));
+  db.stock = objToArr(soloRaw.stock);
+  db.sales = objToArr(soloRaw.sales);
+  db.expenses = objToArr(soloRaw.expenses);
+  db.goal = soloRaw.goal || null;
+  db.settings = soloRaw.settings || {};
+  db.balance = soloRaw.balance || 0;
+  db.members = [{ id: myId, name: myName + ' (вы)', lastSeen: Date.now() }];
+  applyShopSettings();
+  render();
+}
+function startSolo(){
+  mode = 'solo';
+  localStorage.setItem('techstore_mode', 'solo');
+  soloRaw = loadSoloRaw();
+  document.getElementById('ov-room').classList.remove('open');
+  applySoloUI();
+  saveSoloDB();
+}
+function applySoloUI(){
+  const isSolo = mode === 'solo';
+  document.querySelectorAll('.shared-only').forEach(el=> el.style.display = isSolo ? 'none' : '');
+  document.querySelectorAll('.solo-only').forEach(el=> el.style.display = isSolo ? '' : 'none');
+}
+if(room){ document.getElementById('ov-room').classList.remove('open'); startSync(); }
+else if(mode === 'solo'){
+  document.getElementById('ov-room').classList.remove('open');
+  soloRaw = loadSoloRaw();
+  applySoloUI();
+  saveSoloDB();
+}
+
+// generic helpers — работают и с общей комнатой (Firebase), и с личным режимом (localStorage)
+function pushItem(path, data){
+  if(mode === 'solo'){
+    const key = genKey();
+    if(!soloRaw[path]) soloRaw[path] = {};
+    soloRaw[path][key] = data;
+    saveSoloDB();
+    return;
+  }
+  return roomRef.child(path).push(data);
+}
+function updateItem(path, key, data){
+  if(mode === 'solo'){
+    if(!soloRaw[path]) soloRaw[path] = {};
+    soloRaw[path][key] = { ...(soloRaw[path][key]||{}), ...data };
+    saveSoloDB();
+    return;
+  }
+  return roomRef.child(path).child(key).update(data);
+}
+function removeItem(path, key){
+  if(mode === 'solo'){
+    if(soloRaw[path]) delete soloRaw[path][key];
+    saveSoloDB();
+    return;
+  }
+  return roomRef.child(path).child(key).remove();
+}
 
 let currentCurrency = '₽';
 const fmt = n => (Math.round(n||0)).toLocaleString('ru-RU') + ' ' + currentCurrency;
@@ -690,7 +842,7 @@ function switchTab(tab){
 }
 
 function updateFab(){
-  document.getElementById('fab').style.display = (currentTab === 'tab-summary' || currentTab === 'tab-settings') ? 'none' : 'flex';
+  document.getElementById('fab').style.display = (currentTab === 'tab-summary' || currentTab === 'tab-settings' || currentTab === 'tab-balance') ? 'none' : 'flex';
 }
 
 document.getElementById('fab').addEventListener('click', ()=>{
@@ -1008,11 +1160,24 @@ function inPeriod(dateStr){
 }
 
 function render(){
-  // stock list (с поиском)
+  // stock list (с поиском и сортировкой)
   const stockEl = document.getElementById('stockList');
   const searchEl = document.getElementById('stockSearch');
+  const sortEl = document.getElementById('stockSort');
   const searchVal = searchEl ? searchEl.value.trim().toLowerCase() : '';
-  const filteredStock = searchVal ? db.stock.filter(s=> s.name.toLowerCase().includes(searchVal)) : db.stock;
+  const sortBy = sortEl ? sortEl.value : 'qty-asc';
+  let filteredStock = searchVal ? db.stock.filter(s=> s.name.toLowerCase().includes(searchVal)) : [...db.stock];
+  filteredStock = filteredStock.slice().sort((a,b)=>{
+    switch(sortBy){
+      case 'qty-asc': return a.qty - b.qty;
+      case 'qty-desc': return b.qty - a.qty;
+      case 'name-asc': return a.name.localeCompare(b.name, 'ru');
+      case 'price-desc': return b.price - a.price;
+      case 'price-asc': return a.price - b.price;
+      case 'cost-desc': return (b.qty*b.cost) - (a.qty*a.cost);
+      default: return 0;
+    }
+  });
 
   if(db.stock.length===0){
     stockEl.innerHTML = `<div class="empty"><div class="big">📦</div>Склад пуст.<br>Нажмите «+», чтобы добавить товар.</div>`;
@@ -1123,6 +1288,10 @@ function render(){
   document.getElementById('s-stockcost').textContent = fmt(stockCost);
   document.getElementById('s-stockrev').textContent = fmt(stockRev);
   document.getElementById('s-count').textContent = pCount;
+
+  // баланс
+  const balEl = document.getElementById('balanceAmount');
+  if(balEl) balEl.textContent = fmt(db.balance || 0);
 
   // цель на месяц
   renderGoal();
